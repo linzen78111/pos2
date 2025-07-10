@@ -12,7 +12,7 @@ const CONFIG = {
     
     // Render 雲端環境
     render: {
-        API_BASE_URL: 'https://restaurant-pos-api.onrender.com/api'  // 替換為您的 Render URL
+       API_BASE_URL: 'https://pos2-7bcp.onrender.com/api'  // 替換為您的 Render URL  // 替換為您的 Render URL
     },
     
     // 其他雲端服務
