@@ -241,7 +241,19 @@ app.get('/api/used-order-numbers', async (req, res) => {
                 ORDER BY OrderId
             `);
         
-        const usedNumbers = result.recordset.map(row => row.OrderId);
+        const usedNumbers = [];
+        result.recordset.forEach(row => {
+            const orderId = row.OrderId;
+            if (orderId) {
+                // 從訂單ID中提取數字部分
+                // 例如: "20250711-T001" -> 1
+                const match = orderId.match(/-[DT](\d{3})$/);
+                if (match) {
+                    usedNumbers.push(parseInt(match[1], 10));
+                }
+            }
+        });
+        
         res.json(usedNumbers);
         
     } catch (err) {
