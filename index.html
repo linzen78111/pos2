@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>G茶餐酒館 點餐系統</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    body { font-family: 'Noto Sans TC', sans-serif; margin: 0; background: #2d2320; }
+    .container { max-width: 400px; margin: 0 auto; padding: 16px; background: #3e2f28; border-radius: 16px; box-shadow: 0 2px 16px #0005; color: #f5e9da; }
+    .brand { font-size: 2em; font-weight: bold; text-align: center; margin: 18px 0 10px 0; letter-spacing: 2px; color: #e0b873; text-shadow: 0 2px 8px #0006; }
+    h2 { margin-top: 0; color: #e0b873; }
+    .dine-type-group { display: flex; justify-content: center; gap: 24px; margin-bottom: 16px; }
+    .dine-type-group label { font-size: 1.1em; cursor: pointer; }
+    .category-block { margin-bottom: 18px; border-radius: 8px; background: #4a362a; box-shadow: 0 1px 4px #0002; }
+    .category-header { display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 12px 16px; font-size: 1.15em; font-weight: bold; border-radius: 8px 8px 0 0; background: #4a362a; color: #e0b873; border-bottom: 1px solid #e0b87333; }
+    .category-header:hover { background: #6b4c36; }
+    .category-arrow { font-size: 1.2em; transition: transform 0.2s; }
+    .category-arrow.open { transform: rotate(90deg); }
+    .category-content { padding: 0 12px 10px 12px; }
+    .menu-item { display: flex; align-items: flex-start; justify-content: space-between; margin: 16px 0; border-bottom: 1px solid #e0b87333; padding-bottom: 10px; }
+    .menu-item:last-child { border-bottom: none; }
+    .menu-item span { display: flex; align-items: flex-start; }
+    .menu-item img { width: 48px; height: 48px; object-fit: cover; border-radius: 8px; margin-right: 12px; border: 2px solid #e0b87355; background: #fff; }
+    .menu-item .info { display: flex; flex-direction: column; }
+    .menu-item .price { color: #e0b873; font-size: 0.98em; margin-top: 2px; font-weight: bold; }
+    .menu-item .note { color: #f5e9da; font-size: 0.97em; margin-top: 4px; white-space: pre-line; opacity: 0.85; }
+    .menu-item input[type=number] { width: 60px; font-size: 1.1em; margin-left: 8px; background: #2d2320; color: #e0b873; border: 1.5px solid #e0b873; border-radius: 6px; padding: 4px; }
+    button { width: 100%; padding: 14px; font-size: 1.2em; background: #e0b873; color: #2d2320; border: none; border-radius: 10px; margin-top: 20px; font-weight: bold; letter-spacing: 2px; box-shadow: 0 2px 8px #0002; transition: background 0.2s, color 0.2s; }
+    button:disabled { background: #bfa05a; color: #fff; }
+    .loading { text-align: center; color: #e0b873; margin: 16px 0; }
+    .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #4a362a; color: #e0b873; padding: 12px 24px; border-radius: 24px; opacity: 0.97; z-index: 999; font-weight: bold; border: 2px solid #e0b873; box-shadow: 0 2px 8px #0003; }
+    .dine-type-modern { display: flex; justify-content: center; gap: 18px; margin-bottom: 16px; }
+    .dine-btn { flex: 1; padding: 14px 0; font-size: 1.1em; border: 2px solid #e0b873; background: #2d2320; color: #e0b873; border-radius: 8px; cursor: pointer; transition: background 0.2s, color 0.2s, border 0.2s; font-weight: bold; }
+    .dine-btn.selected, .dine-btn:active { background: #e0b873; color: #2d2320; border: 2px solid #e0b873; }
+    input::placeholder { color: #e0b87399; }
+    .table-section { margin-bottom: 16px; }
+    .table-section h2 { margin-bottom: 8px; }
+    .table-section input { width: 100%; font-size: 1.1em; padding: 8px; border: 1.5px solid #e0b873; border-radius: 6px; background: #2d2320; color: #e0b873; }
+    .hidden { display: none !important; }
+    
+    /* Modal 樣式 */
+    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); }
+    .modal-content { background-color: #3e2f28; margin: 2% auto; padding: 16px; border-radius: 12px; width: 92%; max-width: 450px; max-height: 96vh; overflow-y: auto; color: #f5e9da; border: 2px solid #e0b873; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .modal-title { font-size: 1.2em; font-weight: bold; color: #e0b873; }
+    .close { color: #e0b873; font-size: 26px; font-weight: bold; cursor: pointer; line-height: 1; }
+    .close:hover { color: #fff; }
+    .order-summary { margin-bottom: 16px; }
+    .order-summary p { margin: 6px 0; font-size: 0.95em; }
+    .order-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 0.85em; }
+    .order-table th, .order-table td { padding: 4px 2px; text-align: left; border-bottom: 1px solid #e0b87333; }
+    .order-table th { background-color: #4a362a; font-weight: bold; color: #e0b873; }
+    .order-table td { color: #f5e9da; }
+    .order-table th:nth-child(2), .order-table td:nth-child(2) { text-align: center; width: 15%; }
+    .order-table th:nth-child(3), .order-table td:nth-child(3) { text-align: right; width: 20%; }
+    .order-table th:nth-child(4), .order-table td:nth-child(4) { text-align: right; width: 20%; }
+    .total-amount { font-size: 1.1em; font-weight: bold; color: #e0b873; text-align: right; margin-bottom: 16px; }
+    .modal-buttons { display: flex; gap: 8px; }
+    .modal-btn { flex: 1; padding: 10px; font-size: 1em; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    .btn-cancel { background: #666; color: #fff; }
+    .btn-confirm { background: #e0b873; color: #2d2320; }
+    .btn-cancel:hover { background: #555; }
+    .btn-confirm:hover { background: #d4a862; }
+    
+    /* 熱銷標籤 */
+    .hot-badge { background: #e74c3c; color: #fff; font-size: 0.8em; padding: 2px 6px; border-radius: 10px; margin-left: 8px; }
+    
+    /* 圖片放大modal */
+    .image-modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); }
+    .image-modal-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); max-width: 90%; max-height: 90%; }
+    .image-modal img { width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+    .image-modal-close { position: absolute; top: 15px; right: 25px; color: #fff; font-size: 35px; font-weight: bold; cursor: pointer; z-index: 2001; }
+    .image-modal-close:hover { color: #e0b873; }
+    .clickable-image { cursor: pointer; transition: transform 0.2s; }
+    .clickable-image:hover { transform: scale(1.05); }
+    
+    @media (max-width: 500px) {
+      .container { max-width: 98vw; }
+      .menu-item img { width: 40px; height: 40px; }
+      .brand { font-size: 1.4em; }
+      .modal-content { margin: 1% auto; width: 96%; padding: 12px; max-height: 98vh; }
+      .modal-title { font-size: 1.1em; }
+      .close { font-size: 22px; }
+      .order-summary p { font-size: 0.9em; margin: 4px 0; }
+      .order-table { font-size: 0.8em; }
+      .order-table th, .order-table td { padding: 3px 1px; }
+      .total-amount { font-size: 1em; }
+      .modal-btn { padding: 8px; font-size: 0.95em; }
+      .image-modal-close { top: 10px; right: 15px; font-size: 30px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="brand">G茶餐酒館</div>
+    <div class="dine-type-modern">
+      <button type="button" id="dineInBtn" class="dine-btn selected" onclick="selectDineType('內用')">內用</button>
+      <button type="button" id="takeOutBtn" class="dine-btn" onclick="selectDineType('外帶')">外帶</button>
+      <input type="hidden" id="dineType" value="內用">
+    </div>
+    
+    <div class="table-section" id="tableSection">
+      <h2>輸入桌號</h2>
+      <input type="text" id="tableNumber" placeholder="例如 A2" />
+    </div>
+
+    <h2>選擇餐點</h2>
+    <div id="menuList">
+      <div class="loading">載入菜單中...</div>
+    </div>
+
+    <button id="submitBtn" onclick="submitOrder()">送出訂單</button>
+  </div>
+  
+  <!-- 訂單確認 Modal -->
+  <div id="confirmModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">確認訂單</div>
+        <span class="close" onclick="closeModal()">&times;</span>
+      </div>
+      <div class="order-summary">
+        <div id="orderDetails"></div>
+        <div class="total-amount" id="totalAmount"></div>
+      </div>
+      <div class="modal-buttons">
+        <button class="modal-btn btn-cancel" onclick="closeModal()">取消</button>
+        <button class="modal-btn btn-confirm" onclick="confirmOrder()">確認送出</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 圖片放大 Modal -->
+  <div id="imageModal" class="image-modal">
+    <span class="image-modal-close" onclick="closeImageModal()">&times;</span>
+    <div class="image-modal-content">
+      <img id="modalImage" src="" alt="">
+    </div>
+  </div>
+  
+  <div id="toast" class="toast" style="display:none"></div>
+
+  <!-- 載入配置文件 -->
+  <script src="config.js"></script>
+  
+  <script>
+    // API 配置（從 config.js 動態載入）
+    const API_BASE_URL = window.APP_CONFIG.API_BASE_URL;
+
+    let menu = [];
+    let menuPrices = {};
+    let menuOrderLimits = {};
+    let currentOrderData = null;
+
+    // 取得 query string 的桌號
+    function getTableNumberFromQuery() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('table') || '';
+    }
+
+    // 顯示 Toast
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.innerText = msg;
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 2000);
+    }
+
+    // API 調用函數
+    async function apiRequest(endpoint, options = {}) {
+      try {
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...options.headers
+          },
+          ...options
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        return await response.json();
+      } catch (error) {
+        console.error(`API 調用失敗 (${endpoint}):`, error);
+        throw error;
+      }
+    }
+
+    // 檢查點餐限制
+    function checkOrderLimit(inputElement, itemName, orderLimit) {
+      if (orderLimit <= 0) return; // 無限制
+      
+      const currentValue = parseInt(inputElement.value) || 0;
+      
+      // 檢查該品項在其他地方的數量（熱銷區塊和一般分類可能重複）
+      const itemId = inputElement.id.replace(/^(hot_)?item_/, '');
+      const normalInput = document.getElementById('item_' + itemId);
+      const hotInput = document.getElementById('hot_item_' + itemId);
+      
+      let totalQuantity = 0;
+      if (normalInput) totalQuantity += parseInt(normalInput.value) || 0;
+      if (hotInput) totalQuantity += parseInt(hotInput.value) || 0;
+      
+      if (totalQuantity > orderLimit) {
+        // 計算需要調整的數量
+        const otherInput = inputElement.id.includes('hot_item_') ? normalInput : hotInput;
+        const otherValue = otherInput ? (parseInt(otherInput.value) || 0) : 0;
+        const maxAllowed = Math.max(0, orderLimit - otherValue);
+        
+        // 調整當前輸入框的值
+        inputElement.value = maxAllowed;
+        showToast(`${itemName} 每人限點 ${orderLimit} 份，已自動調整`);
+      }
+    }
+
+    // 生成訂單編號
+    async function generateOrderId(dineType) {
+      const now = new Date();
+      const dateStr = now.getFullYear().toString() + 
+                     (now.getMonth() + 1).toString().padStart(2, '0') + 
+                     now.getDate().toString().padStart(2, '0');
+      const typeCode = dineType === '內用' ? 'D' : 'T';
+      
+      // 取得今日已使用的序號
+      const usedNumbers = await getTodayUsedNumbers(dineType, dateStr);
+      
+      // 找到下一個可用的序號 (001-999)
+      let number = 1;
+      while (usedNumbers.includes(number) && number <= 999) {
+        number++;
+      }
+      
+      if (number > 999) {
+        throw new Error('今日訂單序號已滿');
+      }
+      
+      const numberStr = number.toString().padStart(3, '0');
+      return `${dateStr}-${typeCode}${numberStr}`;
+    }
+
+    // 取得今日已使用的訂單序號
+    async function getTodayUsedNumbers(dineType, dateStr) {
+      try {
+        const data = await apiRequest(`/used-order-numbers?dineType=${encodeURIComponent(dineType)}&dateStr=${dateStr}`);
+        return data;
+      } catch (e) {
+        console.log("載入已使用序號失敗:", e);
+        return [];
+      }
+    }
+
+    // 取得熱銷商品
+    async function getHotItems() {
+      try {
+        const hotItems = await apiRequest('/hot-items');
+        return hotItems;
+      } catch (e) {
+        console.log("取得熱銷商品失敗:", e);
+        return [];
+      }
+    }
+
+    // 載入菜單並依分類分組
+    async function loadMenu() {
+      const menuList = document.getElementById('menuList');
+      menuList.innerHTML = '<div class="loading">載入菜單中...</div>';
+      menu = [];
+      menuPrices = {};
+      menuOrderLimits = {};
+      
+      try {
+        const [menuData, hotItems] = await Promise.all([
+          apiRequest('/menu'),
+          getHotItems()
+        ]);
+        
+        menuList.innerHTML = '';
+        
+        // 依 category 分組
+        const categories = {};
+        menuData.forEach(data => {
+          const orderLimit = data.orderLimit || 0;
+          
+          menu.push({ name: data.name, id: data.id });
+          menuPrices[data.name] = data.price || 0;
+          menuOrderLimits[data.name] = orderLimit;
+          
+          const cat = data.category || '未分類';
+          if (!categories[cat]) categories[cat] = [];
+          categories[cat].push({ 
+            ...data, 
+            isHot: hotItems.includes(data.name),
+            orderLimit: orderLimit
+          });
+        });
+
+        // 熱銷TOP10區塊
+        if (hotItems.length > 0) {
+          const hotBlock = document.createElement('div');
+          hotBlock.className = 'category-block';
+          const hotHeader = document.createElement('div');
+          hotHeader.className = 'category-header';
+          hotHeader.style.background = '#e74c3c';
+          hotHeader.innerHTML = `<span>🔥 本週熱銷TOP10</span><span class="category-arrow">▶</span>`;
+          hotBlock.appendChild(hotHeader);
+          
+          const hotContent = document.createElement('div');
+          hotContent.className = 'category-content';
+          hotContent.style.display = 'none';
+          
+          hotItems.forEach(itemName => {
+            const itemData = Object.values(categories).flat().find(item => item.name === itemName);
+            if (itemData) {
+              const limitInfo = itemData.orderLimit > 0 ? 
+                              `<span style="color:#f39c12;font-size:0.9em;margin-left:8px;">限點 ${itemData.orderLimit} 份</span>` : '';
+              
+              const div = document.createElement('div');
+              div.className = 'menu-item';
+              
+              div.innerHTML = `
+                <span>
+                  ${itemData.image ? 
+                    `<img src="${itemData.image}" alt="${itemData.name}" class="clickable-image" onclick="openImageModal('${itemData.image}', '${itemData.name}')" onerror="this.outerHTML='<div style=&quot;width:48px;height:48px;background:#e0b873;color:#2d2320;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-right:12px;border:2px solid #e0b87355;&quot;>🍽️</div>';" />` : 
+                    `<div style="width:48px;height:48px;background:#e0b873;color:#2d2320;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-right:12px;border:2px solid #e0b87355;">🍽️</div>`
+                  }
+                  <span class="info">
+                    <div>${itemData.name}<span class="hot-badge">HOT</span>${limitInfo}</div>
+                    <div class="price">$${itemData.price || ''}</div>
+                    <div class="note">${itemData.note ? itemData.note : ''}</div>
+                  </span>
+                </span>
+                <input type="number" id="hot_item_${itemData.id}" min="0" value="0" max="${itemData.orderLimit > 0 ? itemData.orderLimit : ''}" oninput="checkOrderLimit(this, '${itemData.name}', ${itemData.orderLimit})" onchange="checkOrderLimit(this, '${itemData.name}', ${itemData.orderLimit})" />
+              `;
+              hotContent.appendChild(div);
+            }
+          });
+          
+          hotBlock.appendChild(hotContent);
+          hotHeader.onclick = function() {
+            const isOpen = hotContent.style.display === 'block';
+            hotContent.style.display = isOpen ? 'none' : 'block';
+            hotHeader.querySelector('.category-arrow').classList.toggle('open', !isOpen);
+          };
+          menuList.appendChild(hotBlock);
+        }
+
+        // 產生分類區塊（預設全部收合）
+        Object.keys(categories).forEach((cat, idx) => {
+          const block = document.createElement('div');
+          block.className = 'category-block';
+          // 分類標題
+          const header = document.createElement('div');
+          header.className = 'category-header';
+          header.innerHTML = `<span>${cat}</span><span class="category-arrow">▶</span>`;
+          block.appendChild(header);
+          // 分類內容
+          const content = document.createElement('div');
+          content.className = 'category-content';
+          content.style.display = 'none'; // 預設全部收合
+          
+          categories[cat].forEach(data => {
+            const limitInfo = data.orderLimit > 0 ? 
+                            `<span style="color:#f39c12;font-size:0.9em;margin-left:8px;">限點 ${data.orderLimit} 份</span>` : '';
+            
+            const div = document.createElement('div');
+            div.className = 'menu-item';
+            
+            div.innerHTML = `
+              <span>
+                ${data.image ? 
+                  `<img src="${data.image}" alt="${data.name}" class="clickable-image" onclick="openImageModal('${data.image}', '${data.name}')" onerror="this.outerHTML='<div style=&quot;width:48px;height:48px;background:#e0b873;color:#2d2320;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-right:12px;border:2px solid #e0b87355;&quot;>🍽️</div>';" />` : 
+                  `<div style="width:48px;height:48px;background:#e0b873;color:#2d2320;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-right:12px;border:2px solid #e0b87355;">🍽️</div>`
+                }
+                <span class="info">
+                  <div>${data.name}${data.isHot ? '<span class="hot-badge">HOT</span>' : ''}${limitInfo}</div>
+                  <div class="price">$${data.price || ''}</div>
+                  <div class="note">${data.note ? data.note : ''}</div>
+                </span>
+              </span>
+              <input type="number" id="item_${data.id}" min="0" value="0" max="${data.orderLimit > 0 ? data.orderLimit : ''}" oninput="checkOrderLimit(this, '${data.name}', ${data.orderLimit})" onchange="checkOrderLimit(this, '${data.name}', ${data.orderLimit})" />
+            `;
+            content.appendChild(div);
+          });
+          
+          block.appendChild(content);
+          // 點擊展開/收合
+          header.onclick = function() {
+            const isOpen = content.style.display === 'block';
+            content.style.display = isOpen ? 'none' : 'block';
+            header.querySelector('.category-arrow').classList.toggle('open', !isOpen);
+          };
+          menuList.appendChild(block);
+        });
+        
+        if (menu.length === 0) menuList.innerHTML = '<div>目前無可點餐點</div>';
+      } catch (e) {
+        console.error("載入菜單失敗:", e);
+        menuList.innerHTML = '<div>菜單載入失敗</div>';
+      }
+    }
+
+    // 送出訂單（顯示確認modal）
+    async function submitOrder() {
+      const dineType = document.getElementById('dineType').value;
+      const tableNumber = document.getElementById('tableNumber').value.trim();
+      
+      if (!dineType) {
+        showToast("請選擇外帶或內用！");
+        return;
+      }
+
+      // 驗證桌號邏輯
+      if (dineType === '內用' && !tableNumber) {
+        showToast("內用請輸入桌號！");
+        return;
+      }
+
+      const items = [];
+      let totalAmount = 0;
+      const limitErrors = [];
+      
+      menu.forEach(item => {
+        // 檢查一般分類中的數量
+        const normalQty = parseInt(document.getElementById('item_' + item.id)?.value || "0");
+        // 檢查熱銷區塊中的數量
+        const hotQty = parseInt(document.getElementById('hot_item_' + item.id)?.value || "0");
+        // 總數量是兩者相加
+        const totalQty = normalQty + hotQty;
+        
+        if (totalQty > 0) {
+          // 檢查單次點餐限制
+          const orderLimit = menuOrderLimits[item.name] || 0;
+          
+          if (orderLimit > 0 && totalQty > orderLimit) {
+            limitErrors.push(`${item.name} 每人限點 ${orderLimit} 份，您選擇了 ${totalQty} 份`);
+            return;
+          }
+          
+          const price = menuPrices[item.name] || 0;
+          items.push({ 
+            name: item.name, 
+            quantity: totalQty, 
+            price: price,
+            subtotal: price * totalQty
+          });
+          totalAmount += price * totalQty;
+        }
+      });
+
+      if (limitErrors.length > 0) {
+        showToast(limitErrors[0]);
+        return;
+      }
+
+      if (items.length === 0) {
+        showToast("請選擇餐點！");
+        return;
+      }
+
+      // 準備訂單資料
+      const orderId = await generateOrderId(dineType);
+      const orderData = {
+        orderId: orderId,
+        tableNumber: dineType === '內用' ? tableNumber : '',
+        dineType: dineType,
+        items: items,
+        totalAmount: totalAmount,
+        status: "pending"
+      };
+
+      if (dineType === '外帶') {
+        // 從訂單編號中提取取餐號碼，例如 20250706-T001 → 001
+        const match = orderId.match(/-T(\d{3})$/);
+        orderData.takeoutNumber = match ? match[1] : '001';
+      }
+
+      currentOrderData = orderData;
+      showOrderConfirmModal(orderData);
+    }
+
+    // 顯示訂單確認modal
+    function showOrderConfirmModal(orderData) {
+      const modal = document.getElementById('confirmModal');
+      const orderDetails = document.getElementById('orderDetails');
+      const totalAmount = document.getElementById('totalAmount');
+      
+      let tableInfo = '';
+      if (orderData.dineType === '內用') {
+        tableInfo = `<p><strong>桌號：</strong>${orderData.tableNumber}</p>`;
+      } else {
+        tableInfo = `<p><strong>取餐號碼：</strong>${orderData.takeoutNumber}</p>`;
+      }
+      
+      orderDetails.innerHTML = `
+        <p><strong>用餐方式：</strong>${orderData.dineType}</p>
+        ${tableInfo}
+        <p><strong>訂單編號：</strong>${orderData.orderId}</p>
+        <table class="order-table">
+          <thead>
+            <tr>
+              <th>餐點</th>
+              <th>數量</th>
+              <th>單價</th>
+              <th>小計</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${orderData.items.map(item => `
+              <tr>
+                <td>${item.name}</td>
+                <td>${item.quantity}</td>
+                <td>$${item.price}</td>
+                <td>$${item.subtotal}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      
+      totalAmount.innerHTML = `總金額：$${orderData.totalAmount}`;
+      modal.style.display = 'block';
+    }
+
+    // 關閉modal
+    function closeModal() {
+      document.getElementById('confirmModal').style.display = 'none';
+    }
+
+    // 確認訂單
+    async function confirmOrder() {
+      if (!currentOrderData) return;
+      
+      const btn = document.querySelector('.btn-confirm');
+      btn.disabled = true;
+      btn.innerText = '送出中...';
+
+      try {
+        await apiRequest('/orders', {
+          method: 'POST',
+          body: JSON.stringify(currentOrderData)
+        });
+        
+        closeModal();
+        showToast(`訂單已送出！${currentOrderData.dineType === '外帶' ? '取餐號碼：' + currentOrderData.takeoutNumber : ''}`);
+        setTimeout(() => location.reload(), 1200);
+      } catch (e) {
+        console.error("送出訂單失敗:", e);
+        showToast("送出失敗，請重試");
+        btn.disabled = false;
+        btn.innerText = '確認送出';
+      }
+    }
+
+    // 切換內用/外帶按鈕
+    window.selectDineType = function(type) {
+      document.getElementById('dineType').value = type;
+      document.getElementById('dineInBtn').classList.toggle('selected', type === '內用');
+      document.getElementById('takeOutBtn').classList.toggle('selected', type === '外帶');
+      
+      // 控制桌號欄位顯示
+      const tableSection = document.getElementById('tableSection');
+      if (type === '外帶') {
+        tableSection.classList.add('hidden');
+        document.getElementById('tableNumber').value = '';
+      } else {
+        tableSection.classList.remove('hidden');
+      }
+    }
+
+    // 圖片放大功能
+    function openImageModal(imageSrc, altText) {
+      const modal = document.getElementById('imageModal');
+      const modalImg = document.getElementById('modalImage');
+      modal.style.display = 'block';
+      modalImg.src = imageSrc;
+      modalImg.alt = altText;
+    }
+
+    function closeImageModal() {
+      document.getElementById('imageModal').style.display = 'none';
+    }
+
+    // 全域函數
+    window.submitOrder = submitOrder;
+    window.closeModal = closeModal;
+    window.confirmOrder = confirmOrder;
+    window.openImageModal = openImageModal;
+    window.closeImageModal = closeImageModal;
+    window.checkOrderLimit = checkOrderLimit;
+
+    // 初始化
+    window.onload = async function() {
+      document.getElementById('tableNumber').value = getTableNumberFromQuery();
+      await loadMenu();
+    }
+
+    // 點擊modal外部關閉
+    window.onclick = function(event) {
+      const confirmModal = document.getElementById('confirmModal');
+      const imageModal = document.getElementById('imageModal');
+      
+      if (event.target === confirmModal) {
+        closeModal();
+      }
+      if (event.target === imageModal) {
+        closeImageModal();
+      }
+    }
+  </script>
+</body>
+</html> 
