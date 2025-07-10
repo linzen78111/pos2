@@ -102,9 +102,9 @@ app.get('/api/hot-items', async (req, res) => {
     try {
         const pool = await poolPromise;
         const result = await pool.request().query(`
-            SELECT TOP 5 m.MenuId, m.Name, m.Price, COUNT(oi.Name) as OrderCount
+            SELECT TOP 5 m.MenuId, m.Name, m.Price, COUNT(oi.MenuId) as OrderCount
             FROM Menu m
-            LEFT JOIN OrderItems oi ON m.Name = oi.Name
+            LEFT JOIN OrderItems oi ON m.MenuId = oi.MenuId
             WHERE m.Enabled = 1
             GROUP BY m.MenuId, m.Name, m.Price
             ORDER BY OrderCount DESC, m.Name
@@ -142,29 +142,27 @@ app.post('/api/orders', async (req, res) => {
             .input('totalAmount', sql.Decimal, totalAmount || 0)
             .input('tableNumber', sql.VarChar, tableNumber || '')
             .input('takeoutNumber', sql.VarChar, takeoutNumber || '')
-            .input('notes', sql.Text, notes || '')
+            .input('notes', sql.NVarChar, notes || '')
             .query(`
-                INSERT INTO Orders (Id, OrderId, DineType, Status, TotalAmount, TableNumber, TakeoutNumber, Notes, Timestamp)
-                OUTPUT INSERTED.Id
-                VALUES (NEWID(), @orderId, @dineType, @status, @totalAmount, @tableNumber, @takeoutNumber, @notes, GETDATE())
+                INSERT INTO Orders (OrderId, DineType, Status, TotalAmount, TableNumber, TakeoutNumber, Notes, CreateTime)
+                VALUES (@orderId, @dineType, @status, @totalAmount, @tableNumber, @takeoutNumber, @notes, GETDATE())
             `);
         
-        const dbOrderId = orderResult.recordset[0].Id;
+        // 使用 OrderId 作為關聯鍵
+        const dbOrderId = orderId;
         
         // 插入訂單項目
         if (items && items.length > 0) {
             for (const item of items) {
                 const itemRequest = new sql.Request(transaction);
                 await itemRequest
-                    .input('orderId', sql.UniqueIdentifier, dbOrderId)
-                    .input('name', sql.VarChar, item.name || '')
-                    .input('price', sql.Decimal, item.price || 0)
+                    .input('orderId', sql.VarChar, dbOrderId)
+                    .input('menuId', sql.Int, item.menuId || 0)
                     .input('quantity', sql.Int, item.quantity || 0)
-                    .input('subtotal', sql.Decimal, item.subtotal || 0)
-                    .input('notes', sql.Text, item.notes || '')
+                    .input('price', sql.Decimal, item.price || 0)
                     .query(`
-                        INSERT INTO OrderItems (OrderId, Name, Price, Quantity, Subtotal, Notes)
-                        VALUES (@orderId, @name, @price, @quantity, @subtotal, @notes)
+                        INSERT INTO OrderItems (OrderId, MenuId, Quantity, Price)
+                        VALUES (@orderId, @menuId, @quantity, @price)
                     `);
             }
         }
@@ -189,9 +187,9 @@ app.get('/api/orders', async (req, res) => {
     try {
         const pool = await poolPromise;
         const result = await pool.request().query(`
-            SELECT OrderId, DineType, Status, TotalAmount, TableNumber, TakeoutNumber, Notes, Timestamp
+            SELECT OrderId, DineType, Status, TotalAmount, TableNumber, TakeoutNumber, Notes, CreateTime
             FROM Orders
-            ORDER BY Timestamp DESC
+            ORDER BY CreateTime DESC
         `);
         
         const orders = result.recordset.map(row => ({
@@ -202,13 +200,39 @@ app.get('/api/orders', async (req, res) => {
             tableNumber: row.TableNumber || '',
             takeoutNumber: row.TakeoutNumber || '',
             notes: row.Notes || '',
-            timestamp: row.Timestamp ? row.Timestamp.toISOString() : null
+            timestamp: row.CreateTime ? row.CreateTime.toISOString() : null
         }));
         
         res.json(orders);
     } catch (err) {
         console.error('取得訂單失敗:', err);
         res.status(500).json({ error: '取得訂單失敗' });
+    }
+});
+
+// 取得已使用的訂單號碼 API
+app.get('/api/used-order-numbers', async (req, res) => {
+    try {
+        const { dineType, dateStr } = req.query;
+        
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('dineType', sql.VarChar, dineType)
+            .input('dateStr', sql.VarChar, dateStr + '%')
+            .query(`
+                SELECT OrderId
+                FROM Orders
+                WHERE DineType = @dineType 
+                AND OrderId LIKE @dateStr
+                ORDER BY OrderId
+            `);
+        
+        const usedNumbers = result.recordset.map(row => row.OrderId);
+        res.json(usedNumbers);
+        
+    } catch (err) {
+        console.error('取得已使用訂單號碼失敗:', err);
+        res.status(500).json({ error: '取得已使用訂單號碼失敗' });
     }
 });
 
