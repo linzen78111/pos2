@@ -155,15 +155,29 @@ app.post('/api/orders', async (req, res) => {
         if (items && items.length > 0) {
             for (const item of items) {
                 const itemRequest = new sql.Request(transaction);
-                await itemRequest
-                    .input('orderId', sql.VarChar, dbOrderId)
-                    .input('menuId', sql.Int, item.menuId || 0)
-                    .input('quantity', sql.Int, item.quantity || 0)
-                    .input('price', sql.Decimal, item.price || 0)
-                    .query(`
-                        INSERT INTO OrderItems (OrderId, MenuId, Quantity, Price)
-                        VALUES (@orderId, @menuId, @quantity, @price)
-                    `);
+                
+                // 根據商品名稱查詢 MenuId
+                const menuResult = await itemRequest
+                    .input('itemName', sql.VarChar, item.name)
+                    .query(`SELECT MenuId FROM Menu WHERE Name = @itemName`);
+                
+                if (menuResult.recordset.length > 0) {
+                    const menuId = menuResult.recordset[0].MenuId;
+                    
+                    // 插入訂單項目
+                    const insertRequest = new sql.Request(transaction);
+                    await insertRequest
+                        .input('orderId', sql.VarChar, dbOrderId)
+                        .input('menuId', sql.Int, menuId)
+                        .input('quantity', sql.Int, item.quantity || 0)
+                        .input('price', sql.Decimal, item.price || 0)
+                        .query(`
+                            INSERT INTO OrderItems (OrderId, MenuId, Quantity, Price)
+                            VALUES (@orderId, @menuId, @quantity, @price)
+                        `);
+                } else {
+                    console.log(`警告：找不到商品 "${item.name}" 的 MenuId`);
+                }
             }
         }
         
