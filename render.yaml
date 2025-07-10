@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: restaurant-pos-api
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DB_SERVER
+        value: 203.204.180.34
+      - key: DB_PORT
+        value: 1433
+      - key: DB_DATABASE
+        value: pos_system
+      - key: DB_USERNAME
+        value: lucas
+      - key: DB_PASSWORD
+        value: Vivi097398
+      - key: NODE_ENV
+        value: production 
