@@ -251,13 +251,14 @@
       }
     }
 
-    // 取得熱銷商品
+    // 取得本週熱銷TOP10商品
     async function getHotItems() {
       try {
         const hotItems = await apiRequest('/hot-items');
+        console.log('📊 本週熱銷TOP10:', hotItems);
         return hotItems;
       } catch (e) {
-        console.log("取得熱銷商品失敗:", e);
+        console.log("取得本週熱銷商品失敗:", e);
         return [];
       }
     }

@@ -97,31 +97,56 @@ app.get('/api/menu', async (req, res) => {
     }
 });
 
-// 取得熱門商品 API
+// 取得本週熱銷TOP10 API
 app.get('/api/hot-items', async (req, res) => {
     try {
         const pool = await poolPromise;
-        const result = await pool.request().query(`
-            SELECT TOP 5 m.MenuId, m.Name, m.Price, COUNT(oi.MenuId) as OrderCount
-            FROM Menu m
-            LEFT JOIN OrderItems oi ON m.MenuId = oi.MenuId
-            WHERE m.Enabled = 1
-            GROUP BY m.MenuId, m.Name, m.Price
-            ORDER BY OrderCount DESC, m.Name
-        `);
         
-        const hotItems = result.recordset.map(row => ({
-            id: row.MenuId,
-            name: row.Name,
-            price: parseFloat(row.Price) || 0,
-            orderCount: row.OrderCount || 0
-        }));
+        // 計算本週的開始和結束日期（週一到週日）
+        const now = new Date();
+        const currentDay = now.getDay(); // 0=週日, 1=週一, ..., 6=週六
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - (currentDay === 0 ? 6 : currentDay - 1)); // 週一
+        startOfWeek.setHours(0, 0, 0, 0);
         
-        res.json(hotItems);
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6); // 週日
+        endOfWeek.setHours(23, 59, 59, 999);
+        
+        const result = await pool.request()
+            .input('startOfWeek', sql.DateTime, startOfWeek)
+            .input('endOfWeek', sql.DateTime, endOfWeek)
+            .query(`
+                SELECT TOP 10 m.Name, SUM(oi.Quantity) as TotalSold
+                FROM Menu m
+                INNER JOIN OrderItems oi ON m.MenuId = oi.MenuId
+                INNER JOIN Orders o ON oi.OrderId = o.OrderId
+                WHERE m.Enabled = 1 
+                AND o.CreateTime >= @startOfWeek 
+                AND o.CreateTime <= @endOfWeek
+                AND o.Status != 'cancelled'
+                GROUP BY m.Name
+                HAVING SUM(oi.Quantity) > 0
+                ORDER BY TotalSold DESC, m.Name
+            `);
+        
+        // 返回商品名稱陣列（前端期待的格式）
+        const hotItemNames = result.recordset.map(row => row.Name);
+        
+        console.log(`📊 本週熱銷TOP10 (${startOfWeek.toLocaleDateString()} - ${endOfWeek.toLocaleDateString()}):`, hotItemNames);
+        
+        res.json(hotItemNames);
     } catch (err) {
-        console.error('取得熱門商品失敗:', err);
-        res.status(500).json({ error: '取得熱門商品失敗' });
+        console.error('取得本週熱銷商品失敗:', err);
+        res.status(500).json({ error: '取得本週熱銷商品失敗' });
     }
+});
+
+// 為了相容性，也提供不帶 /api 前綴的路徑
+app.get('/hot-items', async (req, res) => {
+    // 重導向到 /api/hot-items
+    const url = req.originalUrl.replace('/hot-items', '/api/hot-items');
+    return res.redirect(url);
 });
 
 // 建立訂單 API
@@ -271,8 +296,9 @@ app.get('/', (req, res) => {
         endpoints: [
             '/api/health',
             '/api/menu',
-            '/api/hot-items',
-            '/api/orders'
+            '/api/hot-items (本週熱銷TOP10)',
+            '/api/orders',
+            '/api/used-order-numbers'
         ],
         version: '1.0.0'
     });
